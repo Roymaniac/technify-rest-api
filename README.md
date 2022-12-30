@@ -58,7 +58,7 @@ $ npm run server
 
 ### Create
 
-A <a href="https://cloudinary.com/">Cloudinary account</a>
+A [Cloudinary account]("https://cloudinary.com/")
 
 ### Environment variables (`.env` file)
 
@@ -74,6 +74,10 @@ API_SECRET=
 CLOUDINARY_DEFAULT_URL= // default image url
 CLOUDINARY_DEFAULT_PUBLIC_ID= // default image public_id
 ```
+
+## ⚡ Try it yourself
+
+* [Live server](https://technify.onrender.com)
 
 ## Author
 
