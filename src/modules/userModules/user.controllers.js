@@ -80,10 +80,14 @@ const editUser = asyncHandler(async (req, res) => {
     logger.error("⚡️[server]: User not authorized");
   }
 
-  const updatedUser = await User.findByIdAndUpdate(user.id, req.body, {
-    new: true,
-  });
-  logger.error(updatedUser);
+  const updatedUser = await User.findByIdAndUpdate(
+    user.id,
+    { ...req.body },
+    {
+      new: true,
+    }
+  );
+  logger.error("⚡️[server]: User profile was updated");
   res.status(200).json({ data: updatedUser });
 });
 
@@ -96,7 +100,7 @@ const getUser = asyncHandler(async (req, res) => {
 });
 
 // @desc upload user picture
-// @route GET /api/users/me/upload
+// @route POST /api/users/me/upload
 // @access Private
 const uploadPicture = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user);
@@ -105,21 +109,34 @@ const uploadPicture = asyncHandler(async (req, res) => {
     logger.error("⚡️[server]: User not authorized");
   }
 
-  const { avatar } = req.files.file;
-
   try {
-    let url, publicId;
-    if (avatar) {
-      const uploadedResponse = await uploadToCloudinary(avatar, "Profiles");
-      url = uploadedResponse.url;
-      publicId = uploadedResponse.public_id;
-      const ho = await User.findByIdAndUpdate(user.id, req.files.file, {
-        new: true,
-      });
+    let cloud_url, cloud_publicId;
+    const avatar = req.files.avatar;
 
-      res.status(200).json(ho, req.user);
-      logger.info("⚡️[server]: Profile photo upload success");
-    }
+    // if (!req.files || avatar.length === 0) {
+    //   res.status(400).send("No files were uploaded.");
+    //   return;
+    // }
+
+    const uploadedResponse = await uploadToCloudinary(
+      avatar.tempFilePath,
+      "Profiles"
+    );
+    cloud_url = uploadedResponse.url;
+    cloud_publicId = uploadedResponse.public_id;
+    const ho = await User.findByIdAndUpdate(
+      user.id,
+      {
+        avatar: {
+          url: cloud_url,
+          publicId: cloud_publicId,
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json(req.user);
+    logger.info("⚡️[server]: Profile photo upload success");
   } catch (error) {
     logger.error("⚡️[server]: something went wrong!");
   }

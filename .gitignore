@@ -108,3 +108,5 @@ typings/
 
 # Vscode Settings
 /.vscode
+
+tmp

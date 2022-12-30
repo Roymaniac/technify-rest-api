@@ -7,7 +7,7 @@
 > * create and edit a user
 > * login and authenticate.
 
-## Technologies
+## 🚀 Technologies
 
 * Node.js
 * Express
@@ -15,12 +15,28 @@
 * JWT
 * Cloudinary
 
-## Features
+## 📌 Features
 
 * Register
 * Login
 * Edit Profile
 * View Profile
+* Upload profile picture
+* Delete Profile
+
+## Routes
+
+| Routes | API Endpoint          |
+|--------|-----------------------|
+|Register | `api/users/register` |
+| Login | `api/users/login`      |
+
+ Protected Routes | API Endpoint          | Required             |
+|--------|-----------------------|----------------------|
+|View Profile | `api/users/me`   |  `Auth token`        |
+| Upload Picture | `api/users/me/upload` | `Auth token` |
+| Edit Profile | `api/users/me/edit` |   `Auth token`  |
+| Delete Profile | `api/users/me/delete` |`Auth token`  |
 
 ## **:arrow_down:** Clone this project
 
