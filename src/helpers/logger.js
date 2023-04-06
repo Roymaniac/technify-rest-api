@@ -10,21 +10,25 @@ const logger = createLogger({
     level: 'info',
     format: combine(
         colorize(),
-        label({ label: 'backend server' }),
-        errors({ stack: true }),
-        timestamp(),
+        timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         logFormat
     ),
     transports: [
-        new transports.File({
-            filename: 'errors.log',
-            level: 'error'
-          }),
-          new transports.File({
-            filename: 'combined.log',
-            level: 'info'
-          }),
-        new transports.Console()],
+      new transports.Console(),
+      new transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+        maxsize: 1000000,
+        maxFiles: 5,
+        tailable: true
+      }),
+      new transports.File({
+        filename: 'logs/combined.log',
+        maxsize: 1000000,
+        maxFiles: 5,
+        tailable: true
+      })
+    ]
 })
 
 module.exports = { logger }

@@ -13,56 +13,57 @@ const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
-    res.status(400);
-    throw new Error("⚡️[server]: Please fill all fields");
+    return res.status(400).json({ error: "Please fill all fields" });
   }
+// Check if user exists
+  const user = await User.findOne({ email });
 
-  // Check if user exists
-  const userExists = await User.findOne({ email });
-  if (userExists) {
-    res.status(400);
-    throw new Error("⚡️[server]: User Already Exist");
+  if (user) {
+    return res.status(400).json({ error: "User Already Exist" });
   }
-
-  // Hash password with bcrypt
+// Hash password with bcrypt
   const salt = await bcrypt.genSalt(SALT);
   const hashedPassword = await bcrypt.hash(password, salt);
-
-  // Create User
-  const user = await User.create({ name, email, password: hashedPassword });
-
-  // Check user data and return a response
-  if (user) {
-    res.status(201).json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar.url,
-      token: generateToken(user._id),
-    });
-    logger.info(`⚡️[server]: ${user.name} account was created successful`);
+// Create User
+  const newUser = await User.create({
+    name,
+    email,
+    password: hashedPassword,
+  });
+// Check user data and return a response
+  if (newUser) {
+    const token = generateToken(newUser._id);
+    const { _id, name, email, avatar } = newUser;
+    return res.status(201).json({ _id, name, email, avatar, token });
   } else {
-    res.status(400);
-    throw new Error("⚡️[server]: Invalid user data");
+    return res.status(400).json({ error: "Invalid user data" });
   }
 });
 
 // @desc Authenticate User
 // @route POST /api/users/login
 // @access Public
+
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+
   const user = await User.findOne({ email });
-  if (user && (await bcrypt.compare(password, user.password))) {
+  const isPasswordValid = user ? await bcrypt.compare(password, user.password) : false;
+
+  if (isPasswordValid) {
+    const { _id, name, email, avatar } = user;
+
     res.status(200).json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar.url,
-      token: generateToken(user._id),
+      _id,
+      name,
+      email,
+      avatar: avatar?.url || null,
+      token: generateToken(_id),
     });
+
+    logger.info("⚡️[server]: User logged in");
   } else {
-    res.status(400);
+    res.status(400).send("Invalid user credentials.");
     logger.error("⚡️[server]: Invalid user credentials");
   }
 });
@@ -72,32 +73,48 @@ const loginUser = asyncHandler(async (req, res) => {
 // @access Private
 
 const editUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user);
-
+  try {
+    const user = await User.findById(req.user._id);
   // Check if the loggin user matches the user
-  if (!user) {
-    res.status(401);
-    logger.error("⚡️[server]: User not authorized");
-  }
-
-  const updatedUser = await User.findByIdAndUpdate(
-    user.id,
-    { ...req.body },
-    {
-      new: true,
+    if (!user) {
+      res.status(401).send("User not authorized.");
+      return;
     }
-  );
-  logger.error("⚡️[server]: User profile was updated");
-  res.status(200).json({ data: updatedUser });
+
+    const updatedUser = await User.findByIdAndUpdate(
+      user.id,
+      { ...req.body },
+      { new: true }
+    );
+
+    res.status(200).json(updatedUser);
+    logger.info("⚡️[server]: User profile was updated");
+  } catch (error) {
+    logger.error("⚡️[server]: something went wrong!", error);
+    res.status(500).send("Something went wrong!");
+  }
 });
 
 // @desc Get User data
 // @route GET /api/users/me
 // @access Private
 const getUser = asyncHandler(async (req, res) => {
-  res.status(200).json(req.user);
-  logger.info("⚡️[server]: User profile retrieved");
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      res.status(404).send("User not found.");
+  
+    }
+    
+    res.status(200).json(user);
+    logger.info("⚡️[server]: User profile retrieved");
+  } catch (error) {
+    logger.error("⚡️[server]: something went wrong!", error);
+    res.status(500).send("Something went wrong!");
+  }
 });
+
 
 // @desc upload user picture
 // @route POST /api/users/me/upload
@@ -107,24 +124,24 @@ const uploadPicture = asyncHandler(async (req, res) => {
   if (!user) {
     res.status(401);
     logger.error("⚡️[server]: User not authorized");
+
   }
 
   try {
-    let cloud_url, cloud_publicId;
     const avatar = req.files.avatar;
 
-    // if (!req.files || avatar.length === 0) {
-    //   res.status(400).send("No files were uploaded.");
-    //   return;
-    // }
+    if (!avatar) {
+      res.status(400).send("No files were uploaded.");
+
+    }
 
     const uploadedResponse = await uploadToCloudinary(
       avatar.tempFilePath,
       "Profiles"
     );
-    cloud_url = uploadedResponse.url;
-    cloud_publicId = uploadedResponse.public_id;
-    const ho = await User.findByIdAndUpdate(
+    const cloud_url = uploadedResponse.url;
+    const cloud_publicId = uploadedResponse.public_id;
+    const updatedUser = await User.findByIdAndUpdate(
       user.id,
       {
         avatar: {
@@ -135,10 +152,11 @@ const uploadPicture = asyncHandler(async (req, res) => {
       { new: true }
     );
 
-    res.status(200).json(req.user);
+    res.status(200).json(updatedUser);
     logger.info("⚡️[server]: Profile photo upload success");
   } catch (error) {
-    logger.error("⚡️[server]: something went wrong!");
+    logger.error("⚡️[server]: something went wrong!", error);
+    res.status(500).send("Something went wrong!");
   }
 });
 
@@ -152,11 +170,17 @@ const deleteUser = asyncHandler(async (req, res) => {
   if (!user) {
     res.status(401);
     logger.error("⚡️[server]: User not authorized");
+    return;
   }
 
-  await user.remove();
-  res.status(200).json({ _id: req.user._id });
-  logger.info("⚡️[server]: User account was deleted");
+  try {
+    await user.remove();
+    res.status(200).json({ _id: req.user._id });
+    logger.info("⚡️[server]: User account was deleted");
+  } catch (error) {
+    logger.error("⚡️[server]: something went wrong!", error);
+    res.status(500).send("Something went wrong!");
+  }
 });
 
 module.exports = {
